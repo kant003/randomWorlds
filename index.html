@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <script src="libs/p5.js"></script>
+
+</head>
+
+<body>
+    <script>
+        let cam;
+        let img;
+
+        let planet
+        let planet2
+        let cents18Font;
+
+        function preload() {
+            img = loadImage('assets/texture.jpeg');
+            cents18Font = loadFont('assets/18cents.ttf');
+        }
+
+        function setup() {
+            textSize(32);
+            textFont('Georgia');
+
+            createCanvas(400, 400, WEBGL);
+            cam = createCamera();
+            //m = createModel();
+            planet = new Planet()
+            planet2 = new Planet()
+            //planet.radius=10
+            //noiseSeed(99);
+
+           // planet.createModel()
+            //   planet2.createModel()
+
+            paragraph = createP('starting text');
+
+            slider1 = createSlider(0, 10, 4, 0.01);
+            slider1.position(20, 10);
+            slider1.style('width', '80px');
+            slider1.input(updateSliders);
+
+            slider2 = createSlider(0, 4, 1, 0.01);
+            slider2.position(20, 30);
+            slider2.style('width', '80px');
+            slider2.input(updateSliders);
+
+            slider3 = createSlider(0, 4, 1, 0.01);
+            slider3.position(20, 50);
+            slider3.style('width', '80px');
+            slider3.input(updateSliders);
+
+            slider4 = createSlider(0, 3, 1, 0.01);
+            slider4.position(20, 70);
+            slider4.style('width', '80px');
+            slider4.input(updateSliders);
+
+            textFont(cents18Font);
+            //noStroke();
+            updateSliders()
+        }
+
+        function updateSliders() {
+
+            planet.radius = slider1.value()
+            planet.noiseFilter.roughness = slider2.value()
+            planet.noiseFilter.strength = slider3.value()
+            planet.noiseFilter.center = slider4.value()
+            planet.createModel()
+            console.log('camia')
+
+        }
+
+
+
+
+
+        function draw() {
+            background(100);
+            text('ra', -width / 2 + 5, -height / 2 + 10)
+            text('ro', -width / 2 + 5, -height / 2 + 30)
+            text('st', -width / 2 + 5, -height / 2 + 50)
+            text('ce', -width / 2 + 5, -height / 2 + 70)
+
+
+            // text('racasd',100,100)
+            // fill(0, 102, 153);
+
+            orbitControl();
+           
+           // fill('black');
+
+
+            //       specularMaterial(250);
+            shininess(50);
+            ambientLight(50);
+
+            //normalMaterial()
+            // Shine a light in the direction the camera is pointing
+            directionalLight(
+                240, 240, 240,
+                cam.centerX - cam.eyeX,
+                cam.centerY - cam.eyeY,
+                cam.centerZ - cam.eyeZ
+            );
+
+           // stroke('white');
+           noStroke();
+            //rotateY(0.5);
+            torus(1,1);
+
+            push()
+            scale(70)
+            // translate(1, 1)
+
+          //  texture(img);
+            //            normalMaterial();
+            //
+
+            //ambientMaterial(70, 130, 230);
+
+          //  if (planet) planet.model();
+          if (planet) planet.model()
+
+            pop()
+
+            /*  push()
+              scale(70)
+              if (planet2) planet2.model();
+              pop()
+              */
+
+
+        }
+
+
+
+
+        class NoiseFilter {
+            constructor() {
+                this.roughness = 0.4;
+                this.center = 0;
+                this.strength = 0.5;
+
+            }
+            evaluate(point) {
+                //console.log(this.roughness)
+                const v = p5.Vector.mult(point, this.roughness).add(this.center);
+                const noiseValue = (noise(v.x, v.y, v.z) + 1) * 0.5;
+                //const noiseValue = (noise(point.x, point.y, point.z) * this.roughness + this.center + 1) * 0.5;
+                return noiseValue * this.strength
+            }
+        }
+
+
+        class Planet {
+
+            constructor(resolution = 20, texture) {
+                this.resolution = resolution;
+                this.models = []
+                this.radius = 2
+                this.noiseFilter = new NoiseFilter()
+
+            }
+
+            calculatePointOnPlanet(pointOnUnitSphere) {
+                let elevation = this.noiseFilter.evaluate(pointOnUnitSphere)
+                return pointOnUnitSphere.mult(this.radius).mult(1 - elevation)
+            }
+
+
+            createSection(localUp,) {
+
+
+                function createMesh(localUp, the_planet) {
+                    const axisA = new p5.Vector(localUp.y, localUp.z, localUp.x)
+                    const axisB = p5.Vector.cross(localUp, axisA)
+
+                    let i = 0
+                    for (let y = 0; y < the_planet.resolution; y++) {
+                        for (let x = 0; x < the_planet.resolution; x++) {
+                            const percent = new p5.Vector(x, y).div(the_planet.resolution - 1);
+                            const ta = p5.Vector.mult(axisA, (percent.x - 0.5) * 2)
+                            const tb = p5.Vector.mult(axisB, (percent.y - 0.5) * 2)
+                            const pointOnUnitCube = p5.Vector.add(p5.Vector.add(localUp, ta), tb).normalize()
+
+                            this.vertices.push(the_planet.calculatePointOnPlanet(pointOnUnitCube));
+
+                            if (x != the_planet.resolution - 1 && y != the_planet.resolution - 1) {
+                                this.faces.push([i, i + the_planet.resolution + 1, i + the_planet.resolution]);
+                                this.faces.push([i, i + 1, i + the_planet.resolution + 1]);
+
+                                /* let v0 = this.vertices[i]
+                                 let v1 = this.vertices[i + the_planet.resolution + 1]
+                                 let v2 = this.vertices[i + the_planet.resolution]
+                                 let n = p5.Vector.sub(v1, v0).cross(p5.Vector.sub(v2, v0));
+                                 this.vertexNormals.push(n, n, n);*/
+                            }
+                            i++
+
+
+                        }
+                    }
+
+                   
+                    //this.computeFaces();
+                    this.computeNormals();
+                    this.gid = `sect|${the_planet.radius}|${the_planet.resolution}|${localUp.x}|${localUp.y}|${localUp.z}|${the_planet.noiseFilter.roughness}|${the_planet.noiseFilter.center}|${the_planet.noiseFilter.strength}`;
+
+                }
+
+                const the_planet = this
+                return new p5.Geometry(
+                    // detailX and detailY are not used in this example
+                    this.resolution, this.resolution,
+                    // The callback must be an anonymous function, not an arrow function in
+                    // order for "this" to be bound correctly.
+                    function () { createMesh.call(this, localUp, the_planet) }
+                );
+
+            }
+
+
+            createModel() {
+                console.log('create')
+                const directions = [new p5.Vector(1, 0, 0), new p5.Vector(-1, 0, 0), new p5.Vector(0, 1, 0), new p5.Vector(0, -1, 0), new p5.Vector(0, 0, 1), new p5.Vector(0, 0, -1)]
+                this.models = []
+                for (let i = 0; i < 6; i++) {
+                    let localUp = directions[i]
+                    const m = this.createSection(localUp);
+                    this.models.push(m)
+                }
+            }
+
+            model() {
+                for (let i = 0; i < this.models.length; i++) {
+                    model(this.models[i])
+                }
+            }
+
+        }
+
+    </script>
+</body>
+
+</html>
