@@ -19,10 +19,15 @@
         let planet2
         let cents18Font;
         let slider1, slider2, slider3, slider4, slider5;
+        let layerSelected=0
         function preload() {
             img = loadImage('assets/texture.jpeg');
             cents18Font = loadFont('assets/18cents.ttf');
+
+            myShader = loadShader("shader.vert", "shader.frag");
+
         }
+
 
         function setup() {
             textSize(32);
@@ -32,6 +37,26 @@
             cam = createCamera();
             //m = createModel();
             planet = new Planet(20)
+
+            planet.radius=0.8
+            planet.noiseFilters.push(new NoiseFilter( 1.351,
+                1.46,
+                3,
+                1.422,
+                4.39,
+                0.5,
+                new p5.Vector(0.75,1.84,2.48),
+                true))
+            planet.noiseFilters.push(new NoiseFilter(19,
+                1.3,
+                3,
+                1.422,
+                4.39,
+                0.5,
+                new p5.Vector(0.75,1.84,2.48),
+                true))
+
+
            // planet2 = new Planet()
             //planet.radius=10
             //noiseSeed(99);
@@ -42,54 +67,92 @@
 
             paragraph = createP('starting text');
             // radius
-            slider1 = createSlider(0, 10, 1.75, 0.01);
+            slider1 = createSlider(0, 10, 1.7, 0.01);
             slider1.position(20, 10);
             slider1.style('width', '80px');
             slider1.input(updateSliders);
+
+            // Layer
+            sel = createSelect();
+            sel.position(20, 30);
+            planet.noiseFilters.forEach((n,i)=> sel.option('Layer '+i))
+            
+            sel.changed(updateSelect);
+
             //roughness
             slider2 = createSlider(0, 20, 4.39, 0.01);
-            slider2.position(20, 30);
+            slider2.position(20, 50);
             slider2.style('width', '80px');
             slider2.input(updateSliders);
             // strength
             slider3 = createSlider(0, 3, 1, 0.01);
-            slider3.position(20, 50);
+            slider3.position(20, 70);
             slider3.style('width', '80px');
             slider3.input(updateSliders);
             // center
             slider4 = createSlider(0, 3, 2.86, 0.01);
-            slider4.position(20, 70);
+            slider4.position(20, 90);
             slider4.style('width', '80px');
             slider4.input(updateSliders);
 
              // minValue2
             slider5 = createSlider(0, 2, 0.8, 0.001);
-            slider5.position(20, 90);
+            slider5.position(20, 110);
             slider5.style('width', '80px');
             slider5.input(updateSliders);
 
              // base rouge
             slider6 = createSlider(0, 2, 0.8, 0.001);
-            slider6.position(20, 110);
+            slider6.position(20, 130);
             slider6.style('width', '80px');
             slider6.input(updateSliders);
 
+            
+
             textFont(cents18Font);
             //noStroke();
+            updateSelect()
             updateSliders()
         }
 
+        function updateSelect() {
+            if(sel.value() === 'Layer 0'){
+                layerSelected=0
+            }else if(sel.value() === 'Layer 1'){
+                layerSelected=1
+            }
+            console.log('cambia select a'+layerSelected)
+            slider2.value(planet.noiseFilters[layerSelected].roughness)
+           slider3.value(planet.noiseFilters[layerSelected].strength )
+            slider4.value(planet.noiseFilters[layerSelected].center.x )
+            slider5.value(planet.noiseFilters[layerSelected].minValue2 )
+            slider6.value(planet.noiseFilters[layerSelected].baseRoughness) 
+         
+            //slider2.value()
+
+        }
+
         function updateSliders() {
-            planet = new Planet(20)
+            //planet = new Planet(20)
 
             planet.radius = slider1.value()
-            planet.noiseFilter.roughness = slider2.value()
-            planet.noiseFilter.strength = slider3.value()
-            planet.noiseFilter.center = new p5.Vector(slider4.value(), 1.84, 2.48)
-            planet.noiseFilter.minValue2 = slider5.value()
-            planet.noiseFilter.baseRoughness = slider6.value()
+            //let noiseFilterSelect = 0
+            if(sel.value() === 'Layer 0'){
+                layerSelected = 0
+            }else if(sel.value() === 'Layer 1'){
+                layerSelected = 1
+            }else{
+                return
+            }
+            planet.noiseFilters[layerSelected].roughness = slider2.value()
+            planet.noiseFilters[layerSelected].strength = slider3.value()
+            planet.noiseFilters[layerSelected].center = new p5.Vector(slider4.value(), 1.84, 2.48)
+            planet.noiseFilters[layerSelected].minValue2 = slider5.value()
+            planet.noiseFilters[layerSelected].baseRoughness = slider6.value()
+            
             planet.createModel()
-            console.log('camia')
+            console.log(planet.elevationMinMax.min, planet.elevationMinMax.max)
+            console.log('camia a en layer:'+layerSelected)
 
         }
 
@@ -99,6 +162,16 @@
 
         function draw() {
             background(100);
+            shader(myShader);
+            //box(width);
+            let mx = map(mouseX, 0, width, 0, 1);
+  let my = map(mouseY, 0, height, 0, 1);
+  myShader.setUniform('mouse', [mx, my]);
+  myShader.setUniform('min', planet.elevationMinMax.min);
+  myShader.setUniform('max', planet.elevationMinMax.max);
+
+           // myShader.setUniform("uFrameCount", frameCount);
+
             text('ra', -width / 2 + 5, -height / 2 + 10)
             text('ro', -width / 2 + 5, -height / 2 + 30)
             text('st', -width / 2 + 5, -height / 2 + 50)
@@ -158,17 +231,43 @@
         }
 
 
+        class MinMax{
+            constructor(){
+                this.min = Number.MAX_VALUE
+                this.max = Number.MIN_VALUE
+            }
+            addValue(v){
+                if(v>this.max) this.max = v
+                if(v<this.min) this.min = v
+            }
+        }
+
+        class NoiseLayer{
+            constructor(){
+                enable=true
+            }
+        }
 
 
         class NoiseFilter {
-            constructor() {
-                this.minValue2 = 0.5;
-                this.strength = 1;
-                this.numLayers=3
-                this.baseRoughness=1
-                this.roughness = 2;
-                this.persistence=0.5
-                this.center = p5.Vector(0,0,0);
+            constructor(minValue2 = 0.5,
+                strength = 1,
+                numLayers=3,
+                baseRoughness=1,
+                roughness = 2,
+                persistence=0.5,
+                center = new p5.Vector(0,0,0),
+                enable=true){
+               
+                this.minValue2 = minValue2,
+                this.strength = strength,
+                this.numLayers=numLayers,
+                this.baseRoughness=baseRoughness,
+                this.roughness = roughness,
+                this.persistence=persistence,
+                this.center = center;
+                this.enable= enable
+
             }
 
             evaluateOld(point) {
@@ -204,13 +303,23 @@
                 this.resolution = resolution;
                 this.models = []
                 this.radius = 2
-                this.noiseFilter = new NoiseFilter()
+                this.noiseFilters = []
+                this.elevationMinMax = new MinMax()
+               
+             //   this.noiseLayers = []
 
             }
 
             calculatePointOnPlanet(pointOnUnitSphere) {
-                let elevation = this.noiseFilter.evaluate(pointOnUnitSphere)
-                return pointOnUnitSphere.mult(this.radius).mult(1 + elevation)
+                let elevation = 0
+                for(let i=0;i<this.noiseFilters.length;i++){
+                    if(this.noiseFilters[i].enable){
+                        elevation += this.noiseFilters[i].evaluate(pointOnUnitSphere)
+                    }
+                }
+                elevation = this.radius * (1 + elevation)
+                this.elevationMinMax.addValue(elevation)
+                return pointOnUnitSphere.mult(elevation)
             }
 
 
@@ -244,7 +353,9 @@
 
                     //this.computeFaces();
                     this.computeNormals();
-                    this.gid = `sect|${the_planet.radius}|${the_planet.resolution}|${localUp.x}|${localUp.y}|${localUp.z}|${the_planet.noiseFilter.roughness}|${the_planet.noiseFilter.center}|${the_planet.noiseFilter.strength}|${the_planet.noiseFilter.minValue2}|${the_planet.noiseFilter.numLayers}|${the_planet.noiseFilter.baseRoughness}|${the_planet.noiseFilter.persistence}`;
+                    this.gid = `sect|${parseInt(random(1,200))}|${the_planet.radius}|${the_planet.resolution}|${localUp.x}|${localUp.y}|${localUp.z}`;
+                    the_planet.noiseFilters.forEach(n=> this.gid += `|${n.roughness}|${n.strength}|${n.center.x}|${n.center.y}|${n.center.z}|${n.minValue2}|${n.numLayers}|${n.baseRoughness}|${n.persistence}|${n.enable}`)
+                  //  console.log(this.gid)
                 }
 
                 const the_planet = this
@@ -260,6 +371,7 @@
 
 
             createModel() {
+                this.elevationMinMax = new MinMax()
                 const directions = [new p5.Vector(1, 0, 0), new p5.Vector(-1, 0, 0), new p5.Vector(0, 1, 0), new p5.Vector(0, -1, 0), new p5.Vector(0, 0, 1), new p5.Vector(0, 0, -1)]
                 this.models = []
                 for (let i = 0; i < 6; i++) {
